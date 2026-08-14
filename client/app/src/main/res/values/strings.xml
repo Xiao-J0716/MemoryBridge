@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">记忆伙伴</string>
+    <string name="app_description">认知症老人AI陪伴系统</string>
+
+    <!-- 对话界面 -->
+    <string name="button_start_listening">开始说话</string>
+    <string name="button_stop_listening">停止说话</string>
+    <string name="status_listening">正在听...</string>
+    <string name="status_processing">正在思考...</string>
+    <string name="status_speaking">正在回复...</string>
+    <string name="status_idle">点击下方按钮开始说话</string>
+
+    <!-- 离线模式 -->
+    <string name="offline_mode">当前离线，使用本地回复模式</string>
+
+    <!-- 错误提示 -->
+    <string name="error_recording">无法启动录音，请检查权限</string>
+    <string name="error_network">网络连接失败</string>
+    <string name="error_recognition">语音识别失败</string>
+
+    <!-- 权限说明 -->
+    <string name="permission_record_audio_rationale">需要录音权限才能进行语音对话，请允许录音权限。</string>
+</resources>
