@@ -1,0 +1,27 @@
+# Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.cxx/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+.env
+*.egg-info/
+.pytest_cache/
+
+# 通用
+.DS_Store
+*.log
+Thumbs.db
+
+# 模型文件
+*.bin
+vosk-model-*/
