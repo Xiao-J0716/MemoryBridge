@@ -121,11 +121,18 @@ class OllamaLlmService(BaseLlmService):
 
     async def embed(self, text: str) -> list[float]:
         payload = {"model": self.embedding_model, "input": text}
-        # TODO: 调用 Ollama /api/embeddings 接口，解析 embedding
-        resp = await self.client.post(f"{self.base_url}/api/embeddings", json=payload)
+        # Ollama 0.32+ 使用 /api/embed，旧版 /api/embeddings 返回空向量
+        resp = await self.client.post(f"{self.base_url}/api/embed", json=payload)
         resp.raise_for_status()
         data = resp.json()
-        return data["embedding"]
+        embeddings = data.get("embeddings")
+        if embeddings and embeddings[0]:
+            return embeddings[0]
+        # 兼容旧版 Ollama
+        legacy = data.get("embedding")
+        if legacy:
+            return legacy
+        raise ValueError("Ollama embed 响应为空")
 
     async def close(self) -> None:
         await self.client.aclose()

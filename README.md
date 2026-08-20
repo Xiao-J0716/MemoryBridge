@@ -40,23 +40,90 @@ app/
 
 ## 快速开始
 
-### 1. 启动数据库
+### 方式 A：本地部署（P1 推荐，不用 Docker）
+
+**1. 安装基础设施**
+
+```bash
+bash scripts/p1_step1_install_infra.sh
+bash scripts/p1_step1_verify.sh
+```
+
+**2. 安装 Ollama 并拉取模型**
+
+```bash
+bash scripts/p1_step2_install_ollama.sh
+# 若安装不完整，执行: bash scripts/p1_step2_repair_ollama.sh
+```
+
+**3. 配置环境变量**
+
+```bash
+cp server/.env.example server/.env
+```
+
+关键配置（Ollama 本地模式）：
+
+```env
+LLM_MODE=ollama
+OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+EMBEDDING_DIM=768
+```
+
+**4. 启动服务并验证**
+
+```bash
+bash scripts/p1_step2_start_server.sh
+```
+
+**5. 测试 RAG 记忆（跨会话）**
+
+```bash
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":1,"text":"我叫张奶奶，我喜欢喝小米粥","session_id":"session-A"}'
+
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":1,"text":"你还记得我叫什么吗？","session_id":"session-B"}'
+```
+
+**6. 稳定性测试（可选）**
+
+```bash
+python3 scripts/p1_step4_stability_test.py
+```
+
+### 方式 B：Docker 启动数据库
 
 ```bash
 docker-compose up -d
 ```
 
-### 2. 启动云侧
+### 启动云侧
 
 ```bash
 cd server
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 3. 打开端侧
+### 打开端侧
 
-用 Android Studio 打开 `client/` 目录，同步 Gradle 后运行。
+用 Android Studio 打开 `client/` 目录，同步 Gradle 后运行。平板联调时将 `ApiClient.kt` 的 `BASE_URL` 指向服务端地址（如 `http://192.168.x.x:8000/`）。
+
+## 脚本索引（P1）
+
+| 脚本 | 作用 |
+|------|------|
+| `scripts/p1_step1_install_infra.sh` | 安装 PostgreSQL + pgvector + Redis |
+| `scripts/p1_step1_verify.sh` | 验证基础设施 |
+| `scripts/p1_step2_install_ollama.sh` | 安装 Ollama + 拉模型 |
+| `scripts/p1_step2_repair_ollama.sh` | 修复不完整 Ollama 安装 |
+| `scripts/p1_step2_start_server.sh` | 启动服务 + 验证 `/api/chat` |
+| `scripts/p1_step4_stability_test.py` | 20 轮稳定性测试 |
+| `scripts/seed_test_user.sql` | 插入测试用户 `user_id=1` |
 
 ## 关键设计决策
 
