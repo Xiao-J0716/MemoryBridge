@@ -162,8 +162,8 @@ object TtsManager {
         try {
             // 1. 写入临时文件（在当前 IO 线程执行，磁盘写入）
             currentTempFile = File.createTempFile("tts_", ".mp3", context.cacheDir)
-            FileOutputStream(currentTempFile).use { it.write(audioBytes) }
-            Log.d(TAG, "TTS 音频临时文件: ${currentTempFile.absolutePath}, size=${audioBytes.size}")
+            FileOutputStream(currentTempFile!!).use { it.write(audioBytes) }
+            Log.d(TAG, "TTS 音频临时文件: ${currentTempFile!!.absolutePath}, size=${audioBytes.size}")
 
             // 2. MediaPlayer 操作切换到主线程
             //    MediaPlayer 的 OnCompletionListener / OnErrorListener 回调

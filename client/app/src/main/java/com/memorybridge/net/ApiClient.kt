@@ -27,7 +27,7 @@ object ApiClient {
 
     private var okHttpClient: OkHttpClient? = null
     private var retrofit: Retrofit? = null
-    private var chatApi: ChatApi? = null
+    private var _chatApi: ChatApi? = null
     private var appContext: Context? = null
 
     fun init(context: Context, baseUrl: String? = null) {
@@ -51,13 +51,13 @@ object ApiClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        chatApi = retrofit!!.create(ChatApi::class.java)
+        _chatApi = retrofit!!.create(ChatApi::class.java)
         Log.i(TAG, "ApiClient 初始化完成, BASE_URL=$BASE_URL")
     }
 
     /** 获取 ChatApi 实例 */
     val chatApi: ChatApi
-        get() = chatApi ?: throw IllegalStateException("ApiClient 未初始化，请先调用 init()")
+        get() = _chatApi ?: throw IllegalStateException("ApiClient 未初始化，请先调用 init()")
 
     /**
      * 检测网络是否可用

@@ -80,7 +80,9 @@ dependencies {
     // alphacep/vosk-api release v0.3.45 的 android/lib 模块）+ libvosk.so
     // （app/src/main/jniLibs/<abi>/，已随仓库提交），通过 JNA 调用原生库。
     // 如需重建 .so：下载 https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-android-0.3.45.zip
-    implementation("net.java.dev.jna:jna:5.13.0")
+    // JNA 用 @aar 制品：自带 libjnidispatch.so（jni/<abi>/），AGP 合并入 APK，
+    // 否则运行时 System.loadLibrary("jnidispatch") 找不到（普通 jar 不含 Android 原生库）
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
