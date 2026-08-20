@@ -36,12 +36,12 @@ interface SpeechRecognizer {
  *
  * ===== Vosk SDK 集成指南 =====
  *
- * 1. 引入 SDK：
- *    - 方式A: 从 https://github.com/alphacep/vosk-android/releases
- *      下载 vosk-android-0.3.47.aar 放入 app/libs/
- *      app/build.gradle.kts 添加: implementation(files("libs/vosk-android-0.3.47.aar"))
- *    - 方式B: 通过 JitPack
- *      implementation("com.github.alphacep:vosk-android:0.3.47")
+ * 1. 引入方式（源码内联 + JNA）：
+ *    - org.vosk.* Java 绑定源码已内联到 app/src/main/java/org/vosk/（取自
+ *      alphacep/vosk-api release v0.3.45 的 android/lib 模块）
+ *    - app/build.gradle.kts: implementation("net.java.dev.jna:jna:5.13.0")
+ *    - libvosk.so(4 ABI) 放 app/src/main/jniLibs/<abi>/，由 scripts/setup-asr-assets.sh 拉取
+ *    （Vosk 不再发布预编译 AAR、alphacep/vosk-android 仓库已 404、JitPack 不可用，故用此方式）
  *
  * 2. 下载模型：
  *    - 从 https://alphacephei.com/vosk/models 下载 vosk-model-small-cn-0.22 (42MB)
@@ -147,7 +147,7 @@ object SpeechRecognizerManager : SpeechRecognizer {
 
         // VAD 检测：判断是否静音超时（补充 Vosk 自身端点检测的不足）
         vadStrategy?.onAudioFrame(buffer, bytesRead) { isSilent ->
-            if (isSilent && vadStrategy?.isTimeout() == true) {
+            if (isSilent && vadStrategy?.consumeTimeout() == true) {
                 // 静音超时，如果有 partial 文本则作为最终结果提交
                 if (lastPartialText.isNotBlank()) {
                     _results.tryEmit(AsrResult.Final(lastPartialText))

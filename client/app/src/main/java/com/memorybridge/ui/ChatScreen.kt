@@ -1,5 +1,11 @@
 package com.memorybridge.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -45,6 +51,19 @@ import com.memorybridge.ui.components.VoiceButton
 @Composable
 fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) viewModel.startListening()
+    }
+    fun startListeningWithPermission() {
+        val granted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) viewModel.startListening()
+        else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
 
     Scaffold(
         topBar = {
@@ -67,7 +86,7 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                 partialText = uiState.partialText,
                 isAsrReady = uiState.isAsrReady,
                 isAsrLoading = uiState.isAsrLoading,
-                onStartListening = viewModel::startListening,
+                onStartListening = { startListeningWithPermission() },
                 onStopListening = viewModel::stopListening,
                 onRetryAsr = viewModel::retryAsrInit,
             )

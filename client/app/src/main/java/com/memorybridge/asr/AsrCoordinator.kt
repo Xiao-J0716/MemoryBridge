@@ -3,7 +3,6 @@ package com.memorybridge.asr
 import android.content.Context
 import android.util.Log
 import com.memorybridge.audio.AudioRecorder
-import com.memorybridge.audio.VadStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -203,7 +202,7 @@ class AsrCoordinator {
         if (mode == AsrMode.ONLINE_ONLY) {
             // ONLINE_ONLY 模式：用 VAD 检测句末
             vadStrategy?.onAudioFrame(buffer, bytesRead) { isSilent ->
-                if (isSilent && vadStrategy?.isTimeout() == true) {
+                if (isSilent && vadStrategy?.consumeTimeout() == true) {
                     Log.d(TAG, "VAD 检测到句末（静音超时）")
                     triggerOnlineOnlyAsr()
                     vadStrategy?.reset()

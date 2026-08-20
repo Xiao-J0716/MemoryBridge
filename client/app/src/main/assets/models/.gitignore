@@ -1,0 +1,4 @@
+# Vosk 中文模型（约42MB）不入库，由 scripts/setup-asr-assets.sh 下载
+*
+!.gitignore
+!README.md
