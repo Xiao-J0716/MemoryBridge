@@ -1,0 +1,530 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MemoryBridge Server",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "健康检查"
+        ],
+        "summary": "Health Check",
+        "description": "健康检查：返回服务状态与版本号。",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat": {
+      "post": {
+        "tags": [
+          "对话"
+        ],
+        "summary": "Chat",
+        "description": "核心对话接口。",
+        "operationId": "chat_api_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tts": {
+      "post": {
+        "tags": [
+          "语音合成"
+        ],
+        "summary": "Tts",
+        "description": "语音合成接口，返回 MP3 音频。\n\n降级策略：edge-tts 失败时自动切到 pyttsx3 离线引擎。\n响应头 X-TTS-Engine 标明使用了哪个引擎（edge / offline）。",
+        "operationId": "tts_api_tts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TTSRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/asr": {
+      "post": {
+        "tags": [
+          "语音识别"
+        ],
+        "summary": "Recognize Speech",
+        "description": "在线语音识别（精细识别）。\n\n接收客户端上传的 WAV 音频，调用配置的 ASR 后端进行识别。\n\n请求示例（multipart/form-data）:\n    curl -X POST http://localhost:8000/api/asr              -F \"file=@audio.wav\"              -F \"language=zh\"\n\n返回:\n    {\"text\": \"你好世界\", \"backend\": \"simple\", \"duration_ms\": 0}",
+        "operationId": "recognize_speech_api_asr_post",
+        "parameters": [
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "zh",
+              "title": "Language"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_recognize_speech_api_asr_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/asr/status": {
+      "get": {
+        "tags": [
+          "语音识别"
+        ],
+        "summary": "Asr Status",
+        "description": "查询 ASR 服务状态。\n\n返回当前配置的 ASR 后端和可用状态，供客户端判断是否启用在线 ASR。",
+        "operationId": "asr_status_api_asr_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/query": {
+      "get": {
+        "tags": [
+          "记忆"
+        ],
+        "summary": "Query Memories",
+        "description": "向量相似度检索：返回与 query 最相关的记忆条目。\n\n用途：调试面板展示 RAG 检索结果，验证记忆是否被正确存储和检索。",
+        "operationId": "query_memories_api_memory_query_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "用户 ID",
+              "title": "User Id"
+            },
+            "description": "用户 ID"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "检索文本",
+              "title": "Query"
+            },
+            "description": "检索文本"
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "返回条数，0 表示用默认配置",
+              "default": 0,
+              "title": "Top K"
+            },
+            "description": "返回条数，0 表示用默认配置"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemoryResponse"
+                  },
+                  "title": "Response Query Memories Api Memory Query Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AsrResponse": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "识别出的文本，空字符串表示识别失败",
+            "default": ""
+          },
+          "backend": {
+            "type": "string",
+            "title": "Backend",
+            "description": "ASR 后端名称: funasr / whisper / simple",
+            "default": ""
+          },
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms",
+            "description": "识别耗时（毫秒）",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "AsrResponse",
+        "description": "ASR 语音识别响应。"
+      },
+      "Body_recognize_speech_api_asr_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "WAV 音频文件 (16kHz, mono, 16-bit PCM)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_recognize_speech_api_asr_post"
+      },
+      "ChatRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "description": "用户输入文本"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id",
+            "description": "用户 ID"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id",
+            "description": "会话 ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "user_id",
+          "session_id"
+        ],
+        "title": "ChatRequest",
+        "description": "对话请求。"
+      },
+      "ChatResponse": {
+        "properties": {
+          "reply": {
+            "type": "string",
+            "title": "Reply",
+            "description": "AI 回复文本"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id",
+            "description": "会话 ID"
+          },
+          "memories_used": {
+            "type": "integer",
+            "title": "Memories Used",
+            "description": "本次检索到的记忆条数",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "reply",
+          "session_id"
+        ],
+        "title": "ChatResponse",
+        "description": "对话响应。"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "ok"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": ""
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "title": "HealthResponse"
+      },
+      "MemoryResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "importance": {
+            "type": "integer",
+            "title": "Importance",
+            "default": 1
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "MemoryResponse",
+        "description": "记忆检索结果。"
+      },
+      "TTSRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "description": "待合成文本"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice",
+            "description": "语音角色，默认取配置"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate",
+            "description": "语速如 +10%，默认取配置"
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume",
+            "description": "音量如 +0%，默认取配置"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "TTSRequest",
+        "description": "语音合成请求。"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

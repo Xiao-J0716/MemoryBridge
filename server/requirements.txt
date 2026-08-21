@@ -19,6 +19,10 @@ httpx==0.27.0
 
 # TTS
 edge-tts==6.1.10
+# TTS 离线降级（pyttsx3 + pydub，edge-tts 不可用时自动切换）
+pyttsx3==2.99
+pydub==0.25.1
+# ffmpeg 需单独安装（pydub 依赖），Windows 可用 winget install ffmpeg
 
 # ASR - 语音识别（三选一，按 ASR_BACKEND 配置选择）
 # simple 后端：零配置，使用 Google Web Speech API

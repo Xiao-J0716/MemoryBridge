@@ -76,9 +76,21 @@ class Settings(BaseSettings):
     SESSION_TTL: int = 86400  # 会话缓存过期时间（秒），默认 1 天
 
     # ---------- TTS ----------
+    # TTS 引擎优先级：edge（在线，音质好）→ offline（pyttsx3，离线保底）
+    # edge 挂了自动降级到 offline，保证 /api/tts 永远有声音
     TTS_VOICE: str = "zh-CN-XiaoxiaoNeural"
     TTS_RATE: str = "+0%"
     TTS_VOLUME: str = "+0%"
+    # edge-tts 失败时的重试次数（每次降级前先重试）
+    TTS_EDGE_RETRY: int = 1
+    # 离线 TTS 语音（pyttsx3 SAPI5），Windows 自带中文语音
+    TTS_OFFLINE_VOICE: str = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech\\Voices\\Tokens\\TTS_MS_ZH-CN_HUIHUI_11.0"
+    # 离线 TTS 语速（默认 200，越大越快）
+    TTS_OFFLINE_RATE: int = 200
+    # 离线 TTS 音量（0.0~1.0）
+    TTS_OFFLINE_VOLUME: float = 1.0
+    # 离线 MP3 比特率
+    TTS_OFFLINE_BITRATE: str = "128k"
 
     # ---------- ASR（在线语音识别） ----------
     # asr 后端选择: funasr | whisper | simple

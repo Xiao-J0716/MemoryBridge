@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from models.database import engine, Base
-from routers import health, chat, tts, asr
+from routers import health, chat, tts, asr, memory
 
 
 @asynccontextmanager
@@ -45,3 +45,4 @@ app.include_router(health.router, tags=["健康检查"])
 app.include_router(chat.router, prefix="/api", tags=["对话"])
 app.include_router(tts.router, prefix="/api", tags=["语音合成"])
 app.include_router(asr.router, prefix="/api", tags=["语音识别"])
+app.include_router(memory.router, prefix="/api", tags=["记忆"])
