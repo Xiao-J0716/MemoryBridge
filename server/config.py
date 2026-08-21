@@ -81,11 +81,15 @@ class Settings(BaseSettings):
     TTS_VOLUME: str = "+0%"
 
     # ---------- ASR（在线语音识别） ----------
-    # asr 后端选择: funasr | whisper | simple
+    # asr 后端选择: unisound | funasr | whisper | simple
+    #   unisound: 云知声 U2-ASR，云端异步，精度高，推荐做"先粗后精"的精修后端
     #   funasr : 阿里达摩院 FunASR，中文识别最优，需 GPU 或较强 CPU
     #   whisper: OpenAI Whisper，多语言，faster-whisper 实现
     #   simple : speech_recognition + Google Web API，无需安装模型，适合快速测试
-    ASR_BACKEND: Literal["funasr", "whisper", "simple"] = "simple"
+    ASR_BACKEND: Literal["unisound", "funasr", "whisper", "simple"] = "simple"
+
+    # 云知声 U2-ASR API Key（Token Plan 优先）。获取：https://maas.unisound.com/
+    UNISOUND_API_KEY: str = ""
 
     # FunASR 模型名称（paraformer 系列为离线模型，适合短音频）
     ASR_FUNASR_MODEL: str = "paraformer-zh"

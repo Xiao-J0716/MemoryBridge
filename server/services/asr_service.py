@@ -1,8 +1,9 @@
-"""ASR 语音识别服务：支持 FunASR / Whisper / Simple 三种后端。
+"""ASR 语音识别服务：支持 Unisound / FunASR / Whisper / Simple 四种后端。
 
 架构设计：
   - BaseAsrService: 抽象基类，统一 recognize 接口
-  - FunAsrService: 阿里达摩院 FunASR，中文识别精度最高
+  - UnisoundService: 云知声 U2-ASR，云端异步，精度高，推荐做先粗后精的精
+  - FunAsrService: 阿里达摩院 FunASR，中文识别精度最高，需本地模型
   - WhisperService: OpenAI Whisper (faster-whisper)，多语言
   - SimpleAsrService: speech_recognition + Google Web API，零配置快速测试
 
@@ -10,7 +11,12 @@
 """
 
 import io
+import json
+import time
 import tempfile
+import urllib.request
+import urllib.error
+from urllib.parse import quote
 import asyncio
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -213,13 +219,135 @@ class FunAsrService(BaseAsrService):
 _asr_service: Optional[BaseAsrService] = None
 
 
+class UnisoundService(BaseAsrService):
+    """云知声 U2-ASR：异步语音转写云服务。
+
+    流程：上传音频文件 → 创建 ASR 任务 → 轮询至完成 → 取逐句文本。
+    鉴权：Authorization: Bearer {api_key}（Token Plan 优先）。
+    用纯标准库实现（urllib），无第三方依赖；与官方 skill 脚本一致。
+    适合做"先粗后精"中的精修后端：精度高、带标点时间戳，但延迟秒级。
+    """
+
+    BASE_URL = "https://maas-api.unisound.com"
+    UPLOAD_URL = f"{BASE_URL}/v1/files/upload"
+    TASK_URL = f"{BASE_URL}/v1/audio/asr/tasks"
+
+    def __init__(self):
+        api_key = settings.UNISOUND_API_KEY
+        if not api_key:
+            raise RuntimeError("UNISOUND_API_KEY 未配置，无法启用云知声 ASR")
+        self._api_key = api_key
+        logger.info("UnisoundService 初始化完成（U2-ASR 云端）")
+
+    @property
+    def backend_name(self) -> str:
+        return "unisound"
+
+    def _headers(self, json_body: bool = False) -> dict:
+        h = {"Authorization": f"Bearer {self._api_key}"}
+        if json_body:
+            h["Content-Type"] = "application/json"
+        return h
+
+    def _http(self, url: str, method: str, headers: dict, body: bytes | None = None) -> dict:
+        req = urllib.request.Request(url=url, data=body, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                raw = resp.read()
+                return json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            logger.error("HTTP {} for {}: {}", exc.code, url, detail[:300])
+            return {}
+
+    async def recognize(self, audio_wav: bytes, language: str = "zh") -> str:
+        def _do():
+            # 1. 上传音频（multipart，purpose=a2t_async_input）
+            boundary = "----memorybridge-boundary-" + str(int(time.time() * 1000))
+            filename = "audio.wav"
+            body = (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="purpose"\r\n\r\n'
+                f"a2t_async_input\r\n"
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+                f"Content-Type: audio/wav\r\n\r\n"
+            ).encode("utf-8") + audio_wav + f"\r\n--{boundary}--\r\n".encode("utf-8")
+            upload_headers = {
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            }
+            upload_resp = self._http(self.UPLOAD_URL, "POST", upload_headers, body)
+            # 返回结构: {"file": {"file_id": ...}, "base_resp": {"status_code": 0}}
+            file_id = (upload_resp.get("file") or {}).get("file_id") or upload_resp.get("file_id")
+            if not file_id:
+                logger.error("云知声上传失败: {}", json.dumps(upload_resp, ensure_ascii=False)[:200])
+                return ""
+
+            # 2. 创建 ASR 任务（payload 与官方 skill 一致，file_id 须为 int）
+            lang_map = {"zh": "zh-CN", "en": "en-US"}
+            payload = {
+                "model": "u2-asr",
+                "format": "wav",
+                "sample_rate": 16000,
+                "enable_auto_lang": False,
+                "enable_itn": True,
+                "channel": 1,
+                "enable_speaker": False,
+                "word_info": False,
+                "file_id": int(file_id),
+                "language": lang_map.get(language, language),
+            }
+            task_resp = self._http(
+                self.TASK_URL, "POST", self._headers(json_body=True),
+                json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            )
+            task_id = (task_resp.get("data") or task_resp).get("task_id") or task_resp.get("task_id")
+            if not task_id:
+                logger.error("云知声建任务失败: {}", json.dumps(task_resp, ensure_ascii=False)[:200])
+                return ""
+
+            # 3. 轮询
+            deadline = time.time() + settings.ASR_TIMEOUT
+            while time.time() < deadline:
+                time.sleep(3)
+                status_resp = self._http(
+                    f"{self.TASK_URL}/{quote(str(task_id))}", "GET", self._headers(),
+                )
+                data = status_resp.get("data") or status_resp
+                status = data.get("status")
+                if status in ("Success", "success", 2, "2"):
+                    # 结果在 data.result（逐句 list）或 data.results
+                    results = data.get("result") or data.get("results") or []
+                    if isinstance(results, list):
+                        return "".join(seg.get("text", "") for seg in results if isinstance(seg, dict))
+                    return str(results)
+                if status in ("Failed", "failed", 3, "3"):
+                    logger.error("云知声任务失败: {}", json.dumps(status_resp, ensure_ascii=False)[:200])
+                    return ""
+            logger.warning("云知声识别超时 task_id={}", task_id)
+            return ""
+
+        try:
+            text = await asyncio.wait_for(asyncio.to_thread(_do), timeout=settings.ASR_TIMEOUT)
+            logger.info("Unisound 识别成功: {}", text[:50])
+            return text
+        except asyncio.TimeoutError:
+            logger.warning("Unisound 识别超时")
+            return ""
+        except Exception as e:
+            logger.error("Unisound 识别失败: {}", e)
+            return ""
+
+
 def create_asr_service() -> BaseAsrService:
     """根据配置创建 ASR 服务实例（单例）。
 
     后端选择策略：
-    1. funasr  - 生产环境，中文场景最优
-    2. whisper - 多语言或无 FunASR 环境时使用
-    3. simple  - 开发测试，零配置快速验证
+    1. unisound - 云知声 U2-ASR，云端精修，精度高（推荐做先粗后精的精）
+    2. funasr   - 阿里达摩院 FunASR，中文识别精度高，需本地模型
+    3. whisper  - OpenAI Whisper，多语言
+    4. simple   - 开发测试，零配置快速验证
     """
     global _asr_service
     if _asr_service is not None:
@@ -228,7 +356,9 @@ def create_asr_service() -> BaseAsrService:
     backend = settings.ASR_BACKEND
     logger.info("创建 ASR 服务，后端={}", backend)
 
-    if backend == "funasr":
+    if backend == "unisound":
+        _asr_service = UnisoundService()
+    elif backend == "funasr":
         _asr_service = FunAsrService()
     elif backend == "whisper":
         _asr_service = WhisperService()
